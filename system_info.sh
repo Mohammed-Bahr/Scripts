@@ -83,10 +83,56 @@ if [ "$gpu_found" = false ] && [ -d "/proc/driver/nvidia/gpus" ]; then
         fi
     done
 fi
-
-# If no GPU detected
+# If no GPU detected -> ask user and try to install drivers
 if [ "$gpu_found" = false ]; then
-    echo "   No GPU detected or unable to query GPU info"
+    echo "⚠️  No GPU detected."
+    echo "Do you want to try installing GPU drivers?"
+    read -p "Enter GPU type (amd / nvidia / skip): " gpu_type
+
+    case "$gpu_type" in
+        amd|AMD)
+            echo "🟥 AMD GPU selected."
+            echo "This will install open-source AMD drivers (mesa + firmware)."
+            read -p "Continue? (y/n): " confirm
+            if [[ "$confirm" == "y" || "$confirm" == "Y" ]]; then
+                sudo dnf install -y \
+                    mesa-dri-drivers \
+                    mesa-vulkan-drivers \
+                    mesa-va-drivers \
+                    mesa-vdpau-drivers \
+                    linux-firmware
+                echo "✅ AMD drivers installation finished. Reboot recommended."
+            else
+                echo "⏭️  Skipped AMD driver installation."
+            fi
+            ;;
+
+        nvidia|NVIDIA)
+            echo "🟩 NVIDIA GPU selected."
+            echo "This will enable RPM Fusion and install NVIDIA drivers."
+            read -p "Continue? (y/n): " confirm
+            if [[ "$confirm" == "y" || "$confirm" == "Y" ]]; then
+                sudo dnf install -y \
+                    https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm \
+                    https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm
+
+                sudo dnf install -y akmod-nvidia xorg-x11-drv-nvidia-cuda
+                echo "✅ NVIDIA drivers installed. Reboot REQUIRED."
+            else
+                echo "⏭️  Skipped NVIDIA driver installation."
+            fi
+            ;;
+
+        skip|SKIP)
+            echo "⏭️  GPU driver installation skipped."
+            ;;
+
+        *)
+            echo "❌ Invalid option. Please enter amd, nvidia, or skip."
+            ;;
+    esac
+fi
+
 fi
 echo ""
 
